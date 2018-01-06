@@ -259,34 +259,35 @@ Tank.prototype = {
 		$(document).keypress( function(e){
 			var k = e.keyCode || e.which;
 			switch(k){
-				case 119: //W
+				case 90: //z
 					t.dir.up = true;
 					break;
-				case 100: //D
-					t.dir.right = true;
-					break;
-				case 115: //S
+				case 83: //s
 					t.dir.down = true;
 					break;
-				case 97: //A
+				case 81: //Q
 					t.dir.left = true;
 					break;
+				case 68: //D
+					t.dir.right = true;
+					break;
+				
 			}
 
 		}).keyup( function(e){
 			var k = e.keyCode || e.which;
 			switch(k){
-				case 87: //W
-					t.dir.up = false;
+				case 90: //z
+					t.dir.up = true;
+					break;
+				case 83: //s
+					t.dir.down = true;
+					break;
+				case 81: //Q
+					t.dir.left = true;
 					break;
 				case 68: //D
-					t.dir.right = false;
-					break;
-				case 83: //S
-					t.dir.down = false;
-					break;
-				case 65: //A
-					t.dir.left = false;
+					t.dir.right = true;
 					break;
 			}
 		}).mousemove( function(e){ //Detect mouse for aiming
