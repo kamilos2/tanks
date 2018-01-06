@@ -254,24 +254,37 @@ Tank.prototype = {
 	setControls: function(){
 		var t = this;
 
+			
+		case 90: //z
+			t.dir.up = true;
+			break;
+		case 83: //s
+			t.dir.down = true;
+			break;
+		case 81: //Q
+			t.dir.left = true;
+			break;
+		case 68: //D
+			t.dir.right = true;
+			break;
+			
 		/* Detect both keypress and keyup to allow multiple keys
 		 and combined directions */
 		$(document).keypress( function(e){
 			var k = e.keyCode || e.which;
 			switch(k){
-				case 90: //z
+				case 119: //W
 					t.dir.up = true;
 					break;
-				case 83: //s
-					t.dir.down = true;
-					break;
-				case 81: //Q
-					t.dir.left = true;
-					break;
-				case 68: //D
+				case 100: //D
 					t.dir.right = true;
 					break;
-				
+				case 115: //S
+					t.dir.down = true;
+					break;
+				case 97: //A
+					t.dir.left = true;
+					break;
 			}
 
 		}).keyup( function(e){
@@ -290,6 +303,7 @@ Tank.prototype = {
 					t.dir.right = true;
 					break;
 			}
+			
 		}).mousemove( function(e){ //Detect mouse for aiming
 			t.mx = e.pageX - t.$arena.offset().left;
 			t.my = e.pageY - t.$arena.offset().top;
