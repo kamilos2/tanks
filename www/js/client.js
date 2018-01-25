@@ -36,7 +36,7 @@ function setupSocket(){
 }
 
 
-var SKIP_INTRO=true;
+var SKIP_INTRO=false;
 
 var WIDTH = 1100;
 var HEIGHT = 580;
