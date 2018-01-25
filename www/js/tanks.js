@@ -19,6 +19,7 @@ function Game(arenaId, w, h, socket){
 	}, INTERVAL);
 }
 
+//Début de la classe GAME
 Game.prototype = {
 
 	addTank: function(id, name, type, isLocal, x, y, hp){

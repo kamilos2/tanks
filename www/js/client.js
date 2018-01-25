@@ -1,57 +1,86 @@
+
+function joinGame(tankName, tankType){
+	if(tankName != ''){
+		$('#prompt').hide(); //Cache le pop-up
+		socket.emit('joinGame', {name: tankName, type: tankType});
+	}
+}
+
+
+//Events recu du serveur
+function setupSocket(){
+
+	socket.on('addTank', function(tank){
+		//Ajoute un tank sur la map (peut être le notre ou un ennemi)
+		game.addTank(tank.id, tank.name, tank.type, tank.isLocal, tank.x, tank.y);
+	})
+	
+	.on('sync', function(gameServerData){
+		game.receiveData(gameServerData);
+	})
+	
+	.on('killTank', function(tankData){
+		game.killTank(tankData);
+	})
+	
+	.on('removeTank', function(tankId){
+		game.removeTank(tankId);
+	})
+	
+	.on('addStar', function(coord){
+		console.log("Star received");
+		game.addStar(coord.x,coord.y);
+	});
+
+
+}
+
+
+var SKIP_INTRO=true;
+
 var WIDTH = 1100;
 var HEIGHT = 580;
 // This IP is hardcoded to my server, replace with your own
 var socket = io.connect('https://tanks19.herokuapp.com/');
-var game = new Game('#arena', WIDTH, HEIGHT, socket);
-var selectedTank = 1;
+
+setupSocket();
+
+var game = new Game('#arena', WIDTH, HEIGHT, socket); //From tanks.Js
+game.start();
+
+var selectedTank = 1; //Par défaut selectionne le 1er
 var tankName = '';
 
-socket.on('addTank', function(tank){
-	game.addTank(tank.id, tank.name, tank.type, tank.isLocal, tank.x, tank.y);
-});
 
-socket.on('sync', function(gameServerData){
-	game.receiveData(gameServerData);
-});
 
-socket.on('killTank', function(tankData){
-	game.killTank(tankData);
-});
-
-socket.on('removeTank', function(tankId){
-	game.removeTank(tankId);
-});
-
+//Code du pop-up screen
 $(document).ready( function(){
-
+	
+	
+	//If press Join button
 	$('#join').click( function(){
-		tankName = $('#tank-name').val();
-		joinGame(tankName, selectedTank, socket);
+		tankName = SKIP_INTRO ? "Debug" : $('#tank-name').val();
+		joinGame(tankName, selectedTank);
 	});
-
+	
+	//Trigger can termine de tapper une lettre
 	$('#tank-name').keyup( function(e){
 		tankName = $('#tank-name').val();
 		var k = e.keyCode || e.which;
-		if(k == 13){
-			joinGame(tankName, selectedTank, socket);
+		if(k == 13){ //If press enter
+			joinGame(tankName, selectedTank);
 		}
 	});
 
+	//If press tank image
 	$('ul.tank-selection li').click( function(){
-		$('.tank-selection li').removeClass('selected')
-		$(this).addClass('selected');
+		$('.tank-selection li').removeClass('selected') //Enleve cadre de toutes les classes
+		$(this).addClass('selected'); // La case courante recoit le cadre
 		selectedTank = $(this).data('tank');
 	});
-
-});
-
-$(window).on('beforeunload', function(){
-	socket.emit('leaveGame', tankName);
-});
-
-function joinGame(tankName, tankType, socket){
-	if(tankName != ''){
-		$('#prompt').hide();
-		socket.emit('joinGame', {name: tankName, type: tankType});
+	
+	if(SKIP_INTRO){
+		$( "#join" ).trigger( "click" );
 	}
-}
+});
+

@@ -1,120 +1,34 @@
+
+//Partie Serveur
+
+var Ball = require("./ballServer.js");
+var GameServer = require("./gameServer.js");
+
 var express = require('express');
 var app = express();
-var counter = 0;
-var BALL_SPEED = 10;
-var WIDTH = 1100;
-var HEIGHT = 580;
+
+var NoTanksOnline = 0;
+var sockets = {};
+
 var TANK_INIT_HP = 100;
 
-//Static resources server
+//Set up server
 app.use(express.static(__dirname + '/www'));
 
 var server = app.listen(process.env.PORT || 8082, function () {
 	var port = server.address().port;
-	console.log('Server running at port %s', port);
+	var host = server.address().address;
+	host = (host == '::')? 'localhost':host;
+	console.log("Server started");
+
+	console.log('Server running on %s:%s',host,port);
 });
 
+//Creating the WebSockets needed to communicate asynchronously with the clients, using socket.io
 var io = require('socket.io')(server);
 
-function GameServer(){
-	this.tanks = [];
-	this.balls = [];
-	this.lastBallId = 0;
-}
 
-GameServer.prototype = {
-
-	addTank: function(tank){
-		this.tanks.push(tank);
-	},
-
-	addBall: function(ball){
-		this.balls.push(ball);
-	},
-
-	removeTank: function(tankId){
-		//Remove tank object
-		this.tanks = this.tanks.filter( function(t){return t.id != tankId} );
-	},
-
-	//Sync tank with new data received from a client
-	syncTank: function(newTankData){
-		this.tanks.forEach( function(tank){
-			if(tank.id == newTankData.id){
-				tank.x = newTankData.x;
-				tank.y = newTankData.y;
-				tank.baseAngle = newTankData.baseAngle;
-				tank.cannonAngle = newTankData.cannonAngle;
-			}
-		});
-	},
-
-	//The app has absolute control of the balls and their movement
-	syncBalls: function(){
-		var self = this;
-		//Detect when ball is out of bounds
-		this.balls.forEach( function(ball){
-			self.detectCollision(ball);
-
-			if(ball.x < 0 || ball.x > WIDTH
-				|| ball.y < 0 || ball.y > HEIGHT){
-				ball.out = true;
-			}else{
-				ball.fly();
-			}
-		});
-	},
-
-	//Detect if ball collides with any tank
-	detectCollision: function(ball){
-		var self = this;
-
-		this.tanks.forEach( function(tank){
-			if(tank.id != ball.ownerId
-				&& Math.abs(tank.x - ball.x) < 30
-				&& Math.abs(tank.y - ball.y) < 30){
-				//Hit tank
-				self.hurtTank(tank);
-				ball.out = true;
-				ball.exploding = true;
-			}
-		});
-	},
-
-	hurtTank: function(tank){
-		tank.hp -= 2;
-	},
-
-	getData: function(){
-		var gameData = {};
-		gameData.tanks = this.tanks;
-		gameData.balls = this.balls;
-
-		return gameData;
-	},
-
-	cleanDeadTanks: function(){
-		this.tanks = this.tanks.filter(function(t){
-			return t.hp > 0;
-		});
-	},
-
-	cleanDeadBalls: function(){
-		this.balls = this.balls.filter(function(ball){
-			return !ball.out;
-		});
-	},
-
-	increaseLastBallId: function(){
-		this.lastBallId ++;
-		if(this.lastBallId > 1000){
-			this.lastBallId = 0;
-		}
-	}
-
-}
-
-function guid() {
+function generateUID() {
     function s4() {
         return Math.floor((1 + Math.random()) * 0x10000)
             .toString(16)
@@ -124,77 +38,102 @@ function guid() {
         s4() + '-' + s4() + s4() + s4();
 }
 
-var game = new GameServer();
+var game = new GameServer(); //MUST BE BEFORE IO
+
 
 /* Connection events */
-
-io.on('connection', function(client) {
+// IO enables the communication between the server and the client, based on events
+//Quand est client s'est connecté
+io.on('connection', function(socket) {
 	console.log('User connected');
 
-	client.on('joinGame', function(tank){
+	//joinGame event : triggered from the client, when a new user goes to the website
+
+	socket.on('joinGame', function(tank){
+		//Tank = Name & type
 		console.log(tank.name + ' joined the game');
+		
+		//Génerate random X_Y
 		var initX = getRandomInt(40, 900);
 		var initY = getRandomInt(40, 500);
-		var tankId = guid();
+		var tankId = generateUID();
+		
+		//Emit to current client
+		socket.emit('addTank', { id: tankId, name: tank.name, type: tank.type, isLocal: true, x: initX, y: initY, hp: TANK_INIT_HP });
+		//Emit to all client exept the current one
+		socket.broadcast.emit('addTank', { id: tankId, name: tank.name, type: tank.type, isLocal: false, x: initX, y: initY, hp: TANK_INIT_HP} );
 
-		client.emit('addTank', { id: tankId, name: tank.name, type: tank.type, isLocal: true, x: initX, y: initY, hp: TANK_INIT_HP });
-		client.broadcast.emit('addTank', { id: tankId, name: tank.name, type: tank.type, isLocal: false, x: initX, y: initY, hp: TANK_INIT_HP} );
-
+		//server adds a new Tank to the game,
 		game.addTank({ id: tankId, name: tank.name, type: tank.type, hp: TANK_INIT_HP});
+		NoTanksOnline ++;
+		console.log("Adding: "+tankId);
+		sockets[tankId]=socket;
+
 	});
 
-	client.on('sync', function(data){
-		//Receive data from clients
-		if(data.tank != undefined){
+	socket.on('sync', function(data){
+		
+		
+		//Receive data from client
+		if(data.tank != undefined){ //Si tank est connu
 			game.syncTank(data.tank);
 		}
+		
 		//update ball positions
 		game.syncBalls();
 		//Broadcast data to clients
-		client.emit('sync', game.getData());
-		client.broadcast.emit('sync', game.getData());
+		socket.emit('sync', game.getData());
+		socket.broadcast.emit('sync', game.getData());
 
 		//I do the cleanup after sending data, so the clients know
 		//when the tank dies and when the balls explode
 		game.cleanDeadTanks();
 		game.cleanDeadBalls();
-		counter ++;
 	});
 
-	client.on('shoot', function(ball){
-		var ball = new Ball(ball.ownerId, ball.alpha, ball.x, ball.y );
+	socket.on('shoot', function(ball){
+		var ball = new Ball(ball.ownerId, ball.alpha, ball.x, ball.y,game );
 		game.addBall(ball);
 	});
 
-	client.on('leaveGame', function(tankId){
+	socket.on('leaveGame', function(tankId){
 		console.log(tankId + ' has left the game');
 		game.removeTank(tankId);
-		client.broadcast.emit('removeTank', tankId);
+		socket.broadcast.emit('removeTank', tankId);
+		NoTanksOnline--;
+		console.log("Removing: "+tankId);
+
+		sockets[tankId].data="toDelete";
+		delete sockets[tankId];
 	});
 
 });
 
-function Ball(ownerId, alpha, x, y){
-	this.id = game.lastBallId;
-	game.increaseLastBallId();
-	this.ownerId = ownerId;
-	this.alpha = alpha; //angle of shot in radians
-	this.x = x;
-	this.y = y;
-	this.out = false;
+
+
+function getRandomInt(min, max) {
+	return Math.floor(Math.random() * (max - min)) + min;
 }
 
-Ball.prototype = {
 
-	fly: function(){
-		//move to trayectory
-		var speedX = BALL_SPEED * Math.sin(this.alpha);
-		var speedY = -BALL_SPEED * Math.cos(this.alpha);
-		this.x += speedX;
-		this.y += speedY;
+
+function gameloop(){
+	
+	//game.generateStar();
+	var XRandom = getRandomInt(40, 900);
+	var YRandom = getRandomInt(40, 500);
+
+	for(var key in sockets) {
+		sockets[key].emit("addStar", { x: XRandom, y: YRandom});
+		console.log("Sockets");
 	}
+	console.log("Emited");
+  // do something with "key" and "value" variables
+ 
+}
+		
+setInterval(gameloop, 5000);
 
-};
 
 function getRandomInt(min, max) {
 	return Math.floor(Math.random() * (max - min)) + min;

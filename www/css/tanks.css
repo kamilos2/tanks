@@ -22,11 +22,6 @@ body{
 	pointer-events: none;
 }
 
-.tank{
-	position: absolute;
-	background-repeat: no-repeat;
-	background-position: -10px 0;
-}
 
 .explosion{
 	position: absolute;
@@ -120,6 +115,21 @@ body{
 	opacity: .3;
 }
 
+
+.tank{
+	position: absolute;
+	background-repeat: no-repeat;
+	background-position: -10px 0;
+}
+
+
+.star{
+	position: absolute;
+	background-repeat: no-repeat;
+	background-position: -10px 0;
+}
+
+
 .tank-selection{
 	display: inline-block;
 	width: 350px;
@@ -165,4 +175,8 @@ body{
 
 .tank3{
 	background-image: url(../img/tank-3-base.png);
+}
+
+.starBackground{
+	background-image: url(../img/star.png);
 }
